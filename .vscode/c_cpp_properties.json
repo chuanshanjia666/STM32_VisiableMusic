@@ -1,0 +1,33 @@
+{
+    "configurations": [
+        {
+            "name": "ARM32",
+            "browse": {
+                "path": [
+ 
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/main/Core/Inc",
+                "${workspaceFolder}/main/Drivers/STM32F4xx_HAL_Driver/Inc",
+                "${workspaceFolder}/main/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy",
+                "${workspaceFolder}/main/Middlewares/Third_Party/FreeRTOS/Source/include",
+                "${workspaceFolder}/main/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2",
+                "${workspaceFolder}/main/Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F",
+                "${workspaceFolder}/main/Drivers/CMSIS/Device/ST/STM32F4xx/Include",
+                "${workspaceFolder}/main/Drivers/CMSIS/Include"
+            ],
+            "defines": [
+                "USE_HAL_DRIVER",
+                "STM32F407xx"    
+            ],
+            "compilerPath": "E:\\msys2\\mingw64\\bin\\arm-none-eabi-gcc.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}
