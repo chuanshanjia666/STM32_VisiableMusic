@@ -29,6 +29,10 @@
 #include "spi.h"
 #include "tim.h"
 #include <stdio.h>
+#include "arm_math.h"
+#define FFT_SIZE 1024
+float32_t input[FFT_SIZE];  // 输入数据（实数）
+float32_t output[FFT_SIZE]; // 输出幅�??
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -135,20 +139,38 @@ void StartDefaultTask(void *argument)
         ST7735S_COLOR_WHITE,
     };
     int k = 0;
+    // 初始化FFT实例
+    arm_rfft_fast_instance_f32 fft_inst;
+    arm_rfft_fast_init_f32(&fft_inst, FFT_SIZE);
+
+    // 填充输入数据（例如从ADC读取�?
+    for (int i = 0; i < FFT_SIZE; i++)
+    {
+      input[i] =0; // 填充实际数据
+    }
+
+    // 执行FFT（输入和输出缓冲区可以是同一个）
+    arm_rfft_fast_f32(&fft_inst, input, output, 0);
+
+    // 计算幅�?�（输出为复数，格式为[real0, imag0, real1, imag1, ...]�?
+    for (int i = 0; i < FFT_SIZE / 2; i++)
+    {
+      output[i] = sqrtf(output[2 * i] * output[2 * i] + output[2 * i + 1] * output[2 * i + 1]);
+    }
     while (1)
     {
-        if(k>=8)
-            k = 0;
-        for (uint8_t line = 0; line < 160; line++)
-        {
-            for (uint8_t row = 0; row < 128; row++)
-            {
-                ST7735_ShowPoint(&st7735, row, line, color_map[k]);
-                // osDelay(100);
-            }
-        }
-        k++;
-        
+        // if(k>=8)
+        //     k = 0;
+        // for (uint8_t line = 0; line < 160; line++)
+        // {
+        //     for (uint8_t row = 0; row < 128; row++)
+        //     {
+        //         ST7735_ShowPoint(&st7735, row, line, color_map[k]);
+        //         // osDelay(100);
+        //     }
+        // }
+        // k++;
+        ST7735_ShowBlock(&st7735, 0, 0, 127, 159, color_map[k]);
     }
     
 

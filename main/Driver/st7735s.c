@@ -3,7 +3,8 @@
 #include "st7735s.h"
 #include "gpio.h"
 #include "st7735s_cmdlist.h"
-
+#include <string.h>
+#include "cmsis_os2.h"
 void ST7735S_Init(ST7735S_HandleTypeDef *hst7735s,
                   SPI_HandleTypeDef *spi,
                   GPIO_TypeDef *dc_port,
@@ -229,6 +230,22 @@ void ST7735_ShowPoint(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, ST7
     ST7735S_SendData(hst7735s, (uint8_t[]){0x00, y, 0x00, y + 1}, 4);
     ST7735S_SendCommand(hst7735s, LCD_RAMWR);
     ST7735S_SendData(hst7735s, (uint8_t *)&color, 2);
+}
+
+void ST7735_ShowBlock(ST7735S_HandleTypeDef *hst7735s, uint8_t left, uint8_t up, uint8_t right, uint8_t down, ST7735S_ColorTypeDef color)
+{
+    ST7735S_SendCommand(hst7735s, LCD_CASET);
+    ST7735S_SendData(hst7735s, (uint8_t[]){0x00, left, 0x00, right}, 4);
+    ST7735S_SendCommand(hst7735s, LCD_RASET);
+    ST7735S_SendData(hst7735s, (uint8_t[]){0x00, up, 0x00, down}, 4);
+    ST7735S_SendCommand(hst7735s, LCD_RAMWR);
+    uint8_t arr[2 * (right - left + 1) * (down - up + 1)];
+    for (uint16_t i = 0; i < 2 * (right - left + 1) * (down - up + 1); i += 2)
+    {
+        arr[i] = color >> 8;
+        arr[i + 1] = color & 0xFF;
+    }
+    ST7735S_SendData(hst7735s, arr, 2 * (right - left + 1) * (down - up + 1));
 }
 
 void ST7735S_ShowChar(ST7735S_HandleTypeDef *hst7735s)
