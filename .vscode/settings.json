@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "tim.h": "c"
+        "tim.h": "c",
+        "myfft.h": "c",
+        "arm_math.h": "c"
     }
 }

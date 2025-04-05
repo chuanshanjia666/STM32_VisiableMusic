@@ -5,6 +5,8 @@
 #include "st7735s_cmdlist.h"
 #include <string.h>
 #include "cmsis_os2.h"
+#include "dma.h"
+uint8_t LCD_Buff[2 * 128 * 168];
 void ST7735S_Init(ST7735S_HandleTypeDef *hst7735s,
                   SPI_HandleTypeDef *spi,
                   GPIO_TypeDef *dc_port,
@@ -54,6 +56,18 @@ void ST7735S_SendCommand(ST7735S_HandleTypeDef *hst7735s, uint8_t cmd)
         HAL_GPIO_WritePin(hst7735s->dc_port, hst7735s->dc_pin, GPIO_PIN_RESET); // DC = 0 for command
     HAL_SPI_Transmit(hst7735s->spi, &cmd, 1, HAL_MAX_DELAY);
 }
+
+void ST7735S_SendDataDMA(ST7735S_HandleTypeDef *hst7735s, uint8_t *data, uint16_t size)
+{
+    if (hst7735s->dc_mode != DC_MODE_DATA)
+        HAL_GPIO_WritePin(hst7735s->dc_port, hst7735s->dc_pin, GPIO_PIN_SET); // DC = 1 for data
+                                                                              // while (HAL_DMA_GetState() != HAL_DMA_STATE_READY)
+                                                                              //     ;
+    while ((HAL_DMA_GetState(hst7735s->spi->hdmatx) != HAL_DMA_STATE_READY))
+        ;
+    HAL_SPI_Transmit_DMA(hst7735s->spi, data, size);
+}
+
 void ST7735S_LCD_Init(ST7735S_HandleTypeDef *hst7735s)
 {
 
@@ -232,20 +246,20 @@ void ST7735_ShowPoint(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, ST7
     ST7735S_SendData(hst7735s, (uint8_t *)&color, 2);
 }
 
-void ST7735_ShowBlock(ST7735S_HandleTypeDef *hst7735s, uint8_t left, uint8_t up, uint8_t right, uint8_t down, ST7735S_ColorTypeDef color)
+void ST7735_ShowBlock(ST7735S_HandleTypeDef *hst7735s, ST7735S_ColorTypeDef color)
 {
     ST7735S_SendCommand(hst7735s, LCD_CASET);
-    ST7735S_SendData(hst7735s, (uint8_t[]){0x00, left, 0x00, right}, 4);
+    ST7735S_SendData(hst7735s, (uint8_t[]){0x00, 0x00, 0x00, 127}, 4);
     ST7735S_SendCommand(hst7735s, LCD_RASET);
-    ST7735S_SendData(hst7735s, (uint8_t[]){0x00, up, 0x00, down}, 4);
+    ST7735S_SendData(hst7735s, (uint8_t[]){0x00, 0x00, 0x00, 159}, 4);
     ST7735S_SendCommand(hst7735s, LCD_RAMWR);
-    uint8_t arr[2 * (right - left + 1) * (down - up + 1)];
-    for (uint16_t i = 0; i < 2 * (right - left + 1) * (down - up + 1); i += 2)
+
+    for (uint16_t i = 0; i < sizeof(LCD_Buff); i += 2)
     {
-        arr[i] = color >> 8;
-        arr[i + 1] = color & 0xFF;
+        LCD_Buff[i] = (uint16_t)(color) >> 8;
+        LCD_Buff[i + 1] = (uint16_t)(color) & 0x00FF;
     }
-    ST7735S_SendData(hst7735s, arr, 2 * (right - left + 1) * (down - up + 1));
+    ST7735S_SendDataDMA(hst7735s, LCD_Buff, sizeof(LCD_Buff));
 }
 
 void ST7735S_ShowChar(ST7735S_HandleTypeDef *hst7735s)

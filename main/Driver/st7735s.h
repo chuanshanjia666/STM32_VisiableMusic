@@ -70,4 +70,4 @@ void ST7735S_BlacklightOff(ST7735S_HandleTypeDef *hst7735s);
 void ST7735S_LCD_Init(ST7735S_HandleTypeDef *hst7735s);
 void ST7735_ShowPoint(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, ST7735S_ColorTypeDef color);
 
-void ST7735_ShowBlock(ST7735S_HandleTypeDef *hst7735s, uint8_t left, uint8_t up, uint8_t right, uint8_t down, ST7735S_ColorTypeDef color);
+void ST7735_ShowBlock(ST7735S_HandleTypeDef *hst7735s, ST7735S_ColorTypeDef color);
