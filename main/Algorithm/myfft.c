@@ -8,7 +8,7 @@ void MYFFT_Init(MYFFT_HandleTypeDef *hmyfft, uint32_t size)
     hmyfft->input_signal = (float32_t *)malloc(size * sizeof(float32_t));
     hmyfft->ouput_signal_complex = (float32_t *)malloc(size * sizeof(float32_t));
     hmyfft->result = (float32_t *)malloc((size / 2) * sizeof(float32_t));
-    arm_rfft_fast_init_f32(&(hmyfft->hfft), 1024);
+    arm_rfft_fast_init_f32(&(hmyfft->hfft), size);
 }
 
 void MYFFT_GetResult(MYFFT_HandleTypeDef *hmyfft)

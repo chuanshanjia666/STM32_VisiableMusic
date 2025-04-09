@@ -44,15 +44,10 @@ typedef struct ST7735S_HandleTypeDef
     GPIO_TypeDef *blk_port;
     uint16_t blk_pin;
     DC_Mode dc_mode;
+    uint16_t *buff;
+    uint16_t total_x_pixel;
+    uint16_t total_y_pixel;
 } ST7735S_HandleTypeDef;
-
-typedef struct
-{
-    uint8_t x_start;
-    uint8_t y_start;
-    uint8_t x_end;
-    uint8_t y_end;
-} ST7735S_WindowTypeDef;
 
 void ST7735S_Init(ST7735S_HandleTypeDef *hst7735s,
                   SPI_HandleTypeDef *spi,
@@ -61,13 +56,24 @@ void ST7735S_Init(ST7735S_HandleTypeDef *hst7735s,
                   GPIO_TypeDef *rst_port,
                   uint16_t rst_pin,
                   GPIO_TypeDef *blk_port,
-                  uint16_t blk_pin);
+                  uint16_t blk_pin,
+                  uint16_t total_x_pixel,
+                  uint16_t total_y_pixel);
 void ST7735S_Reset(ST7735S_HandleTypeDef *hst7735s);
 void ST7735S_BlacklightOn(ST7735S_HandleTypeDef *hst7735s);
 void ST7735S_BlacklightOff(ST7735S_HandleTypeDef *hst7735s);
-// inline void ST7735S_SendData(ST7735S_HandleTypeDef *hst7735s, uint8_t *data, uint16_t size);
-// inline void ST7735S_SendCommand(ST7735S_HandleTypeDef *hst7735s, uint8_t cmd);
 void ST7735S_LCD_Init(ST7735S_HandleTypeDef *hst7735s);
-void ST7735_ShowPoint(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, ST7735S_ColorTypeDef color);
-
-void ST7735_ShowBlock(ST7735S_HandleTypeDef *hst7735s, ST7735S_ColorTypeDef color);
+void ST7735S_ShowPointNoBuff(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, ST7735S_ColorTypeDef color);
+void ST7735S_WriteBlock(ST7735S_HandleTypeDef *hst7735s, ST7735S_ColorTypeDef color);
+void ST7735S_FlushBuffDMA(ST7735S_HandleTypeDef *hst7735s);
+void ST7735S_SendCommand(ST7735S_HandleTypeDef *hst7735s, uint8_t cmd);
+void ST7735S_SendData(ST7735S_HandleTypeDef *hst7735s, uint8_t *data, uint16_t size);
+void ST7735S_SendDataDMA(ST7735S_HandleTypeDef *hst7735s, uint8_t *data, uint16_t size);
+uint16_t ST7735S_RGB888ToRGB565(uint32_t rgb888);
+uint16_t ST7735S_RGB565Map(uint8_t r, uint8_t g, uint8_t b);
+void ST7735S_WriteBuffPoint(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, ST7735S_ColorTypeDef color);
+void ST7735S_DrawLine(ST7735S_HandleTypeDef *hst7735s, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, ST7735S_ColorTypeDef color);
+void ST7735S_DrawLineLeft(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, uint8_t length, ST7735S_ColorTypeDef color);
+void ST7735S_DrawLineDown(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, uint8_t length, ST7735S_ColorTypeDef color);
+void ST7735S_DrawLineUp(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, uint8_t length, ST7735S_ColorTypeDef color);
+void ST7735S_DrawLineRight(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, uint8_t length, ST7735S_ColorTypeDef color);

@@ -1,4 +1,63 @@
 #pragma once
+enum ST7735S_CMD
+{
+    ST7735S_NOP = 0x00,       // 空命令
+    ST7735S_SWRESET = 0x01,   // 软件复位，在睡眠和显示模式下，重置软件后需等待120ms后方可执行下一条指令
+    ST7735S_RDDID = 0x04,     // 读取LCD的制造商ID（8位）、驱动版本ID（最高位为1，7位）、驱动程序ID（8位）
+    ST7735S_RDDST = 0x09,     // 读取显示屏所有状态参数
+    ST7735S_RDDPM = 0x0A,     // 读取显示屏能量模式
+    ST7735S_RDDMADCTL = 0x0B, // 读取显示屏MADCTL
+    ST7735S_RDDCOLMOD = 0x0C, // 读取显示屏像素定义
+    ST7735S_RDDIM = 0x0D,     // 读取显示屏图片模式
+    ST7735S_RDDSM = 0x0E,     // 读取显示屏单信号模式
+    ST7735S_RDDSDR = 0x0F,    // 读取显示屏自我诊断结果
+    ST7735S_SLPIN = 0x10,     // 进入最小功耗模式
+    ST7735S_SLPOUT = 0x11,    // 关闭睡眠模式
+    ST7735S_PTLON = 0x12,     // 打开Partial模式
+    ST7735S_NORON = 0x13,     // 恢复到正常模式
+    ST7735S_INVOFF = 0x20,    // 显示反转模式中恢复
+    ST7735S_INVON = 0x21,     // 进入反向显示模式
+    ST7735S_GAMSET = 0x26,    // 当前显示选择所需的伽马曲线
+    ST7735S_DISPOFF = 0x28,   // 关闭显示，帧内存的输出被禁用
+    ST7735S_DISPON = 0x29,
+    ST7735S_CASET = 0x2A,  // 列地址设置，每个值代表帧内存中的一列
+    ST7735S_RASET = 0x2B,  // 行地址设置，每个值代表帧内存中的一行
+    ST7735S_RAMWR = 0x2C,  // 写入内存
+    ST7735S_RGBSET = 0x2D, // 颜色模式设置
+    ST7735S_RAMRD = 0x2E,  // 读取内存
+    ST7735S_PTLAR = 0x30,  // 部分模式的显示区域设置
+    ST7735S_SCRLAR = 0x33, // 定义垂直滚动区域的显示
+    ST7735S_TEOFF = 0x34,   // 关闭(Active Low) TE信号线的撕裂效应输出信号
+    ST7735S_TEON = 0x35,    // 打开TE信号线的撕裂效果输出信号
+    ST7735S_MADCTL = 0x36,  // 定义帧内存的读写扫描方向
+    ST7735S_VSCSAD = 0x37,  // 设置垂直滚动起始地址，此命令与垂直滚动定义(33h)一起使用
+    ST7735S_IDMOFF = 0x38,  // 关闭空闲模式
+    ST7735S_IDMON = 0x39,   // 开启空闲模式
+    ST7735S_COLMOD = 0x3A,  // 定义通过MCU接口传输的RGB图片数据的格式
+    ST7735S_FRMCTR1 = 0xB1, // 设置全色正常模式的帧频
+    ST7735S_FRMCTR2 = 0xB2, // 设置空闲模式的帧频
+    ST7735S_FRMCTR3 = 0xB3, // 设置部分模式/全色的帧频率
+    ST7735S_INVCRT = 0xB4,  // 反转模式控制
+    ST7735S_PWCTR1 = 0xC0,  // 设置AVDD、MODE、VRHP、VRHN
+    ST7735S_PWCTR2 = 0xC1,  // 设置VGH与VGL的供电功率
+    ST7735S_PWCTR3 = 0xC2,  // 设置正常模式/全色模式下的运放的电流
+    ST7735S_PWCTR4 = 0xC3,  // 设置空闲模式/八色模式下的运放的电流
+    ST7735S_PWCTR5 = 0xC4,  // 设置部分模式/全色模式下的运放的电流
+    ST7735S_VMCTR1 = 0xC5,  // 设置VCOM电压电平以减少闪烁问题
+    ST7735S_VMOFCTR = 0xC7, // VCOM偏移控制，在使用命令0xC7之前，命令0xD9的位VMF_EN必须启用(设置为1)
+    ST7735S_WRID2 = 0xD1,   // 写入LCD模块版本的7位数据，保存到NVM
+    ST7735S_WRID3 = 0xD2,   // 写入项目代码模块的8位数据，保存到NVM
+    ST7735S_NVFCTR1 = 0xD9, // NVM状态控制
+    ST7735S_RDID1 = 0xDA,   // 读字节返回8位LCD模块的制造商ID
+    ST7735S_RDID2 = 0xDB,   // 读字节返回8位LCD模块/驱动程序版本ID
+    ST7735S_RDID3 = 0xDC,   // 读字节返回8位LCD模块/驱动ID
+    ST7735S_NVFCTR2 = 0xDE, // NVM读取命令
+    ST7735S_NVFCTR3 = 0xDF, // NVM写取命令
+    ST7735S_GMCTRP1 = 0xE0, // Gamma ‘+’ Polarity Correction Characteristics Setting
+    ST7735S_GMCTRN1 = 0xE1, // Gamma ‘+’ Polarity Correction Characteristics Setting
+    ST7735S_GCV = 0xFC,     // 自动调节门泵时钟，节省功耗
+};
+
 #define LCD_NOP 0x00       // 空命令
 #define LCD_SWRESET 0x01   // 软件复位，在睡眠和显示模式下，重置软件后需等待120ms后方可执行下一条指令
 #define LCD_RDDID 0x04     // 读取LCD的制造商ID（8位）、驱动版本ID（最高位为1，7位）、驱动程序ID（8位）

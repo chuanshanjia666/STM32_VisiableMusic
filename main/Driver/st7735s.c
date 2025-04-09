@@ -1,12 +1,14 @@
 #include "main.h"
-#include "spi.h"
 #include "st7735s.h"
-#include "gpio.h"
 #include "st7735s_cmdlist.h"
 #include <string.h>
+#include <malloc.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <math.h>
+#include <stdlib.h>
 #include "cmsis_os2.h"
-#include "dma.h"
-uint8_t LCD_Buff[2 * 128 * 168];
+#include "font.h"
 void ST7735S_Init(ST7735S_HandleTypeDef *hst7735s,
                   SPI_HandleTypeDef *spi,
                   GPIO_TypeDef *dc_port,
@@ -14,7 +16,9 @@ void ST7735S_Init(ST7735S_HandleTypeDef *hst7735s,
                   GPIO_TypeDef *rst_port,
                   uint16_t rst_pin,
                   GPIO_TypeDef *blk_port,
-                  uint16_t blk_pin)
+                  uint16_t blk_pin,
+                  uint16_t total_x_pixel,
+                  uint16_t total_y_pixel)
 {
     hst7735s->spi = spi;
     hst7735s->dc_port = dc_port;
@@ -24,6 +28,9 @@ void ST7735S_Init(ST7735S_HandleTypeDef *hst7735s,
     hst7735s->blk_port = blk_port;
     hst7735s->blk_pin = blk_pin;
     hst7735s->dc_mode = DC_MODE_UNKOWN;
+    hst7735s->total_x_pixel = total_x_pixel;
+    hst7735s->total_y_pixel = total_y_pixel;
+    hst7735s->buff = (uint16_t *)malloc(2 * total_x_pixel * total_y_pixel);
 }
 
 void ST7735S_Reset(ST7735S_HandleTypeDef *hst7735s)
@@ -60,9 +67,7 @@ void ST7735S_SendCommand(ST7735S_HandleTypeDef *hst7735s, uint8_t cmd)
 void ST7735S_SendDataDMA(ST7735S_HandleTypeDef *hst7735s, uint8_t *data, uint16_t size)
 {
     if (hst7735s->dc_mode != DC_MODE_DATA)
-        HAL_GPIO_WritePin(hst7735s->dc_port, hst7735s->dc_pin, GPIO_PIN_SET); // DC = 1 for data
-                                                                              // while (HAL_DMA_GetState() != HAL_DMA_STATE_READY)
-                                                                              //     ;
+        HAL_GPIO_WritePin(hst7735s->dc_port, hst7735s->dc_pin, GPIO_PIN_SET);
     while ((HAL_DMA_GetState(hst7735s->spi->hdmatx) != HAL_DMA_STATE_READY))
         ;
     HAL_SPI_Transmit_DMA(hst7735s->spi, data, size);
@@ -236,7 +241,7 @@ void ST7735S_LCD_Init(ST7735S_HandleTypeDef *hst7735s)
     ST7735S_BlacklightOn(hst7735s);
 }
 
-void ST7735_ShowPoint(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, ST7735S_ColorTypeDef color)
+void ST7735S_ShowPointNoBuff(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, ST7735S_ColorTypeDef color)
 {
     ST7735S_SendCommand(hst7735s, LCD_CASET);
     ST7735S_SendData(hst7735s, (uint8_t[]){0x00, x, 0x00, x + 1}, 4);
@@ -246,22 +251,175 @@ void ST7735_ShowPoint(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, ST7
     ST7735S_SendData(hst7735s, (uint8_t *)&color, 2);
 }
 
-void ST7735_ShowBlock(ST7735S_HandleTypeDef *hst7735s, ST7735S_ColorTypeDef color)
+uint16_t uint16L_To_uint16H(uint16_t num)
+{
+    return (num & 0xFF00) >> 8 | (num & 0x00FF) << 8;
+}
+
+void ST7735S_WriteBlock(ST7735S_HandleTypeDef *hst7735s, ST7735S_ColorTypeDef color)
+{
+    // 大小端问题：！！！
+    size_t size = hst7735s->total_x_pixel * hst7735s->total_y_pixel;
+    uint16_t *buff = hst7735s->buff;
+    __asm volatile(
+        "mov r0, %[buff]          \n" // 加载缓冲区地址到r0
+        "mov r1, %[size]          \n" // 加载像素数量到r1
+        "mov r2, %[color]         \n" // 加载颜色值到r2
+        "lsr r3, r2, #8           \n" // 提取高八位到r3 (color >> 8)
+        "ST7735_ShowBlockloop:    \n"
+        "strb r3, [r0], #1        \n" // 存储高八位并指针+1
+        "strb r2, [r0], #1        \n" // 存储低八位并指针+1
+        "subs r1, r1, #1          \n" // 计数器减1
+        "bne ST7735_ShowBlockloop \n" // 循环直到计数器为0
+        :
+        : [buff] "r"(buff), [size] "r"(size), [color] "r"(color)
+        : "r0", "r1", "r2", "r3", "memory");
+}
+
+void ST7735S_FlushBuffDMA(ST7735S_HandleTypeDef *hst7735s)
 {
     ST7735S_SendCommand(hst7735s, LCD_CASET);
     ST7735S_SendData(hst7735s, (uint8_t[]){0x00, 0x00, 0x00, 127}, 4);
     ST7735S_SendCommand(hst7735s, LCD_RASET);
     ST7735S_SendData(hst7735s, (uint8_t[]){0x00, 0x00, 0x00, 159}, 4);
     ST7735S_SendCommand(hst7735s, LCD_RAMWR);
-
-    for (uint16_t i = 0; i < sizeof(LCD_Buff); i += 2)
-    {
-        LCD_Buff[i] = (uint16_t)(color) >> 8;
-        LCD_Buff[i + 1] = (uint16_t)(color) & 0x00FF;
-    }
-    ST7735S_SendDataDMA(hst7735s, LCD_Buff, sizeof(LCD_Buff));
+    if (hst7735s->dc_mode != DC_MODE_DATA)
+        HAL_GPIO_WritePin(hst7735s->dc_port, hst7735s->dc_pin, GPIO_PIN_SET);
+    while ((HAL_DMA_GetState(hst7735s->spi->hdmatx) != HAL_DMA_STATE_READY))
+        ;
+    HAL_SPI_Transmit_DMA(hst7735s->spi, (uint8_t *)hst7735s->buff, 2 * hst7735s->total_x_pixel * hst7735s->total_y_pixel);
 }
 
-void ST7735S_ShowChar(ST7735S_HandleTypeDef *hst7735s)
+void ST7735S_WriteBuffPoint(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, ST7735S_ColorTypeDef color)
 {
+    if (x >= hst7735s->total_x_pixel || y >= hst7735s->total_y_pixel)
+        return;
+
+    hst7735s->buff[y * hst7735s->total_x_pixel + x] = uint16L_To_uint16H(color);
+}
+
+void ST7735S_ShowChar(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, char c, ST7735S_ColorTypeDef color)
+{
+    if (x >= hst7735s->total_x_pixel || y >= hst7735s->total_y_pixel)
+        return;
+    for (int i = 0; i < 8; i++)
+    {
+        for (int j = 0; j < 8; j++)
+        {
+            if ((g_f8X16[16 * (c - 0x20) + i] >> j) & 0x01)
+                ST7735S_WriteBuffPoint(hst7735s, x + j, y + i, color);
+        }
+    }
+}
+
+void ST7735S_ShowString(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, char *str, ST7735S_ColorTypeDef color)
+{
+    while (*str != '\0')
+    {
+        ST7735S_ShowChar(hst7735s, x, y, *str, color);
+        str++;
+        x += 8;
+    }
+}
+
+uint16_t ST7735S_RGB565Map(uint8_t r, uint8_t g, uint8_t b)
+{
+    return ((r & 0x1F) << 11) | ((g & 0x3F) << 5) | (0x1F & b);
+}
+
+uint16_t ST7735S_RGB888ToRGB565(uint32_t rgb888)
+{
+    uint8_t r = (rgb888 >> 16) & 0xFF;
+    uint8_t g = (rgb888 >> 8) & 0xFF;
+    uint8_t b = rgb888 & 0xFF;
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+}
+
+void ST7735S_Printf(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, ST7735S_ColorTypeDef color, const char *__format, ...)
+{
+    va_list args;
+    va_start(args, __format);
+    char buffer[128];
+    vsnprintf(buffer, sizeof(buffer), __format, args);
+    va_end(args);
+    ST7735S_ShowString(hst7735s, x, y, buffer, color);
+}
+
+void ST7735S_DrawLine(ST7735S_HandleTypeDef *hst7735s, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, ST7735S_ColorTypeDef color)
+{
+    int dx = abs(x1 - x0);
+    int dy = abs(y1 - y0);
+    int sx = (x0 < x1) ? 1 : -1;
+    int sy = (y0 < y1) ? 1 : -1;
+    int err = dx - dy;
+
+    while (1)
+    {
+        ST7735S_WriteBuffPoint(hst7735s, x0, y0, color);
+        if (x0 == x1 && y0 == y1)
+            break;
+        int err2 = err * 2;
+        if (err2 > -dy)
+        {
+            err -= dy;
+            x0 += sx;
+        }
+        if (err2 < dx)
+        {
+            err += dx;
+            y0 += sy;
+        }
+    }
+}
+
+void ST7735S_DrawLineRight(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, uint8_t length, ST7735S_ColorTypeDef color)
+{
+    if (y >= hst7735s->total_y_pixel || x >= hst7735s->total_x_pixel)
+        return;
+
+    for (uint8_t i = 0; i < length; i++)
+    {
+        if (x + i >= hst7735s->total_x_pixel)
+            break;
+        ST7735S_WriteBuffPoint(hst7735s, x + i, y, color);
+    }
+}
+
+void ST7735S_DrawLineDown(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, uint8_t length, ST7735S_ColorTypeDef color)
+{
+    if (x >= hst7735s->total_x_pixel || y >= hst7735s->total_y_pixel)
+        return;
+
+    for (uint8_t i = 0; i < length; i++)
+    {
+        if (y + i >= hst7735s->total_y_pixel)
+            break;
+        ST7735S_WriteBuffPoint(hst7735s, x, y + i, color);
+    }
+}
+
+void ST7735S_DrawLineUp(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, uint8_t length, ST7735S_ColorTypeDef color)
+{
+    if (x >= hst7735s->total_x_pixel || y >= hst7735s->total_y_pixel)
+        return;
+
+    for (uint8_t i = 0; i < length; i++)
+    {
+        if (y < i)
+            break;
+        ST7735S_WriteBuffPoint(hst7735s, x, y - i, color);
+    }
+}
+
+void ST7735S_DrawLineLeft(ST7735S_HandleTypeDef *hst7735s, uint8_t x, uint8_t y, uint8_t length, ST7735S_ColorTypeDef color)
+{
+    if (y >= hst7735s->total_y_pixel || x >= hst7735s->total_x_pixel)
+        return;
+
+    for (uint8_t i = 0; i < length; i++)
+    {
+        if (x < i)
+            break;
+        ST7735S_WriteBuffPoint(hst7735s, x - i, y, color);
+    }
 }
